@@ -19,4 +19,5 @@
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]
 , license = "MIT"
+, repository = "https://github.com/artemisSystem/purescript-foreign-readwrite"
 }
