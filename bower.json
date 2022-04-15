@@ -1,0 +1,33 @@
+{
+    "name": "purescript-foriegn-readwrite",
+    "license": [
+        "MIT"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/artemisSystem/purescript-foreign-readwrite"
+    },
+    "ignore": [
+        "**/.*",
+        "node_modules",
+        "bower_components",
+        "output"
+    ],
+    "dependencies": {
+        "purescript-console": "^v5.0.0",
+        "purescript-effect": "^v3.0.0",
+        "purescript-either": "^v5.0.0",
+        "purescript-foldable-traversable": "^v5.0.1",
+        "purescript-foreign": "^v6.0.1",
+        "purescript-foreign-object": "^v3.0.0",
+        "purescript-identity": "^v5.0.0",
+        "purescript-lists": "^v6.0.1",
+        "purescript-maybe": "^v5.0.0",
+        "purescript-prelude": "^v5.0.1",
+        "purescript-psci-support": "^v5.0.0",
+        "purescript-record": "^v3.0.0",
+        "purescript-safe-coerce": "^v1.0.0",
+        "purescript-transformers": "^v5.2.0",
+        "purescript-unsafe-coerce": "^v5.0.0"
+    }
+}
