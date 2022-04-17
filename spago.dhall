@@ -1,4 +1,4 @@
-{ name = "foriegn-readwrite"
+{ name = "foreign-readwrite"
 , dependencies =
   [ "console"
   , "effect"
