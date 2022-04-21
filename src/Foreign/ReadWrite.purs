@@ -20,16 +20,19 @@ import Data.Maybe (Maybe(..), maybe)
 import Data.Symbol (class IsSymbol, reflectSymbol)
 import Data.TraversableWithIndex (traverseWithIndex)
 import Foreign (FT, Foreign, ForeignError(..), fail, isUndefined, readArray, readBoolean, readChar, readInt, readNumber, readString, tagOf, unsafeFromForeign, unsafeToForeign)
-import Foreign.Object (Object, insert, lookup)
+import Foreign.Object (Object, insert, lookup, runST, thawST)
 import Foreign.Object as Object
+import Foreign.Object.ST (new, peek, poke)
 import Prim.Row as R
 import Prim.RowList (RowList)
 import Prim.RowList as RL
 import Record as Record
 import Record.Builder (Builder)
 import Record.Builder as Builder
+import Record.Unsafe (unsafeGet)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
+import Unsafe.Coerce (unsafeCoerce)
 
 -- | Test whether a foreign value is an object
 isObject ∷ Foreign → Boolean
@@ -97,7 +100,7 @@ instance ReadWriteForeign a ⇒ ReadWriteForeign (Maybe a) where
   writeForeign = maybe undefined writeForeign
 
 -- | If any extra keys exist in the foreign object being read, it will result in
--- | an error.
+-- | an error. Preserves key order.
 instance
   ( RL.RowToList row rl
   , ReadWriteForeignRecord rl row
@@ -162,7 +165,29 @@ readForeignRecord
   → FT m (Record row)
 readForeignRecord _ value = do
   valueObject ← readObject value
-  Builder.buildFromScratch <$> readForeignRecordImpl (Proxy ∷ _ rl) valueObject
+  values ← Builder.buildFromScratch <$> readForeignRecordImpl (Proxy ∷ _ rl)
+    valueObject
+  -- The reason we don't just return `values` is that it's alphabetical, so we
+  -- piggyback off of the order of `valueObject` to retain the original order,
+  -- while adding any keys that should be present in the final record, but were
+  -- missing in the foreign object (for example, the `Maybe` instance for
+  -- `ReadWriteForeign` allows its field/key to be missing).
+  -- This ranks high among the dirtiest stuff I've done in PureScript. Sorry.
+  let
+    allCorrectKeysAsObject ∷ Object Foreign
+    allCorrectKeysAsObject = unsafeCoerce values
+
+    allKeysInCorrectOrder ∷ Object Foreign
+    allKeysInCorrectOrder = runST do
+      obj ← thawST valueObject
+      forWithIndex_ allCorrectKeysAsObject \k v → peek k obj >>= case _ of
+        Just _ → poke k (unsafeGet k values) obj
+        Nothing → poke k v obj
+      pure obj
+
+    finalRecord ∷ Record row
+    finalRecord = unsafeCoerce allKeysInCorrectOrder
+  pure finalRecord
 
 writeForeignRecord
   ∷ ∀ proxy rl row
@@ -170,5 +195,20 @@ writeForeignRecord
   ⇒ proxy rl
   → Record row
   → Foreign
-writeForeignRecord _ record = (unsafeToForeign ∷ Object Foreign → Foreign) $
-  writeForeignRecordImpl (Proxy ∷ _ rl) record
+writeForeignRecord _ record = do
+  let
+    allCorrectKeysAsObject ∷ Object Foreign
+    allCorrectKeysAsObject = writeForeignRecordImpl (Proxy ∷ _ rl) record
+
+    allKeysInCorrectOrder ∷ Object Foreign
+    allKeysInCorrectOrder = unsafeCoerce record
+
+    finalObj ∷ Object Foreign
+    finalObj = runST do
+      obj ← new
+      forWithIndex_ allKeysInCorrectOrder \k _ →
+        case lookup k allCorrectKeysAsObject of
+          Just v → unless (isUndefined v) $ void (poke k v obj)
+          Nothing → pure unit
+      pure obj
+  (unsafeToForeign ∷ Object Foreign → Foreign) $ finalObj
