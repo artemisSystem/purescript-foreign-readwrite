@@ -6,10 +6,12 @@
   , "identity"
   , "lists"
   , "maybe"
+  , "newtype"
   , "prelude"
   , "record"
   , "safe-coerce"
   , "transformers"
+  , "unsafe-coerce"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]

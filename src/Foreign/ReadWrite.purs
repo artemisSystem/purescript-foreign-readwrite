@@ -1,11 +1,15 @@
 module Foreign.ReadWrite
-  ( class ReadWriteForeign
+  ( class ReadForeign
   , readForeign
+  , class WriteForeign
   , writeForeign
 
-  , class ReadWriteForeignRecord
+  , IncompleteRecord(..)
+
+  , class ReadForeignRecord
   , readForeignRecordImpl
   , readForeignRecord
+  , class WriteForeignRecord
   , writeForeignRecordImpl
   , writeForeignRecord
   ) where
@@ -14,9 +18,12 @@ import Prelude
 
 import Control.Monad.Except (catchError)
 import Data.FoldableWithIndex (forWithIndex_)
+import Data.Generic.Rep (class Generic)
 import Data.Identity (Identity(..))
 import Data.List.NonEmpty (head)
 import Data.Maybe (Maybe(..), maybe)
+import Data.Newtype (class Newtype)
+import Data.Show.Generic (genericShow)
 import Data.Symbol (class IsSymbol, reflectSymbol)
 import Data.TraversableWithIndex (traverseWithIndex)
 import Foreign (FT, Foreign, ForeignError(..), fail, isUndefined, readArray, readBoolean, readChar, readInt, readNumber, readString, tagOf, unsafeFromForeign, unsafeToForeign)
@@ -44,107 +51,177 @@ readObject value
   | isObject value = pure $ unsafeFromForeign value
   | otherwise = fail $ TypeMismatch "Object" (tagOf value)
 
-foreign import undefined ∷ Foreign
+foreign import undefined_ ∷ Foreign
 
-class ReadWriteForeign a where
+undefined ∷ Foreign
+undefined = undefined_
+
+class ReadForeign a where
   readForeign ∷ ∀ m. Monad m ⇒ Foreign → FT m a
+
+class WriteForeign a where
   writeForeign ∷ a → Foreign
 
-instance ReadWriteForeign Foreign where
+instance ReadForeign Foreign where
   readForeign = pure
+
+instance WriteForeign Foreign where
   writeForeign = identity
 
-instance ReadWriteForeign Void where
+instance ReadForeign Void where
   readForeign _ = fail (ForeignError "Attempted to read Void from Foreign")
+
+instance WriteForeign Void where
   writeForeign = absurd
 
-instance ReadWriteForeign String where
+instance ReadForeign String where
   readForeign = readString
+
+instance WriteForeign String where
   writeForeign = unsafeToForeign ∷ String → Foreign
 
-instance ReadWriteForeign Char where
+instance ReadForeign Char where
   readForeign = readChar
+
+instance WriteForeign Char where
   writeForeign = unsafeToForeign ∷ Char → Foreign
 
-instance ReadWriteForeign Boolean where
+instance ReadForeign Boolean where
   readForeign = readBoolean
+
+instance WriteForeign Boolean where
   writeForeign = unsafeToForeign ∷ Boolean → Foreign
 
-instance ReadWriteForeign Number where
+instance ReadForeign Number where
   readForeign = readNumber
+
+instance WriteForeign Number where
   writeForeign = unsafeToForeign ∷ Number → Foreign
 
-instance ReadWriteForeign Int where
+instance ReadForeign Int where
   readForeign = readInt
+
+instance WriteForeign Int where
   writeForeign = unsafeToForeign ∷ Int → Foreign
 
-instance ReadWriteForeign a ⇒ ReadWriteForeign (Identity a) where
+instance ReadForeign a ⇒ ReadForeign (Identity a) where
   readForeign = readForeign >>> map (coerce ∷ a → Identity a)
+
+instance WriteForeign a ⇒ WriteForeign (Identity a) where
   writeForeign = (coerce ∷ Identity a → a) >>> writeForeign
 
-instance ReadWriteForeign a ⇒ ReadWriteForeign (Array a) where
+instance ReadForeign a ⇒ ReadForeign (Array a) where
   readForeign = readArray >=> traverseWithIndex \i value → readForeign value
     `catchError` (head >>> ErrorAtIndex i >>> fail)
+
+instance WriteForeign a ⇒ WriteForeign (Array a) where
   writeForeign = map writeForeign >>>
     (unsafeToForeign ∷ Array Foreign → Foreign)
 
-instance ReadWriteForeign a ⇒ ReadWriteForeign (Object a) where
+instance ReadForeign a ⇒ ReadForeign (Object a) where
   readForeign = readObject >=> traverseWithIndex \k value → readForeign value
     `catchError` (head >>> ErrorAtProperty k >>> fail)
+
+instance WriteForeign a ⇒ WriteForeign (Object a) where
   writeForeign = map writeForeign >>>
     (unsafeToForeign ∷ Object Foreign → Foreign)
 
-instance ReadWriteForeign a ⇒ ReadWriteForeign (Maybe a) where
+instance ReadForeign a ⇒ ReadForeign (Maybe a) where
   readForeign value =
     if isUndefined value then pure Nothing else Just <$> readForeign value
+
+instance WriteForeign a ⇒ WriteForeign (Maybe a) where
   writeForeign = maybe undefined writeForeign
 
 -- | If any extra keys exist in the foreign object being read, it will result in
 -- | an error. Preserves key order.
 instance
   ( RL.RowToList row rl
-  , ReadWriteForeignRecord rl row
+  , ReadForeignRecord rl row
   ) ⇒
-  ReadWriteForeign (Record row) where
-  readForeign = readForeignRecord (Proxy ∷ Proxy rl)
+  ReadForeign (Record row) where
+  readForeign = readForeignRecord (Proxy ∷ Proxy rl) true
+
+-- | Preserves key order.
+instance
+  ( RL.RowToList row rl
+  , WriteForeignRecord rl row
+  ) ⇒
+  WriteForeign (Record row) where
   writeForeign = writeForeignRecord (Proxy ∷ Proxy rl)
 
-class ReadWriteForeignRecord
+newtype IncompleteRecord r = IncompleteRecord r
+
+derive instance Newtype (IncompleteRecord r) _
+
+derive instance Generic (IncompleteRecord r) _
+
+instance Show r ⇒ Show (IncompleteRecord r) where
+  show = genericShow
+
+-- | Does not error if extra keys exist in the foreign object being read.
+-- | Preserves key order.
+instance
+  ( RL.RowToList row rl
+  , ReadForeignRecord rl row
+  ) ⇒
+  ReadForeign (IncompleteRecord (Record row)) where
+  readForeign = map IncompleteRecord <<<
+    readForeignRecord (Proxy ∷ Proxy rl) false
+
+class ReadForeignRecord
   ∷ RowList Type → Row Type → Constraint
-class ReadWriteForeignRecord rl row | rl → row where
+class ReadForeignRecord rl row | rl → row where
   readForeignRecordImpl
     ∷ ∀ proxy m
     . Monad m
     ⇒ proxy rl
+    → Boolean
     → Object Foreign
     → FT m (Builder {} { | row })
+
+class WriteForeignRecord
+  ∷ RowList Type → Row Type → Constraint
+class WriteForeignRecord rl row | rl → row where
   writeForeignRecordImpl ∷ ∀ proxy. proxy rl → Record row → Object Foreign
 
-instance rwForeignRecordNil ∷ ReadWriteForeignRecord RL.Nil () where
-  readForeignRecordImpl _ object = do
-    forWithIndex_ object \k v → fail
+instance readForeignRecordNil ∷ ReadForeignRecord RL.Nil () where
+  readForeignRecordImpl _ errorOnExtraKeys object = do
+    when errorOnExtraKeys $ forWithIndex_ object \k v → fail
       (ErrorAtProperty k (TypeMismatch "undefined" (tagOf v)))
     pure (identity ∷ Builder _ _)
+
+instance writeForeignRecordNil ∷ WriteForeignRecord RL.Nil () where
   writeForeignRecordImpl _ {} = Object.empty
 
-instance rwForeignRecordCons ∷
+instance readForeignRecordCons ∷
   ( IsSymbol key
   , R.Cons key focus tail row
   , R.Lacks key tail
-  , ReadWriteForeignRecord rlTail tail
-  , ReadWriteForeign focus
+  , ReadForeignRecord rlTail tail
+  , ReadForeign focus
   ) ⇒
-  ReadWriteForeignRecord (RL.Cons key focus rlTail) row where
-  readForeignRecordImpl _ object = do
+  ReadForeignRecord (RL.Cons key focus rlTail) row where
+  readForeignRecordImpl _ errorOnExtraKeys object = do
     let focusForeign = lookup key object # maybe undefined identity
     focus ← readForeign focusForeign `catchError`
       (head >>> ErrorAtProperty key >>> fail)
-    tail ← readForeignRecordImpl rlTailP (Object.delete key object)
+    tail ←
+      readForeignRecordImpl rlTailP errorOnExtraKeys (Object.delete key object)
     pure $ Builder.insert keyP focus <<< tail
     where
     key = reflectSymbol keyP
     keyP = Proxy ∷ Proxy key
     rlTailP = Proxy ∷ Proxy rlTail
+
+instance writeForeignRecordCons ∷
+  ( IsSymbol key
+  , R.Cons key focus tail row
+  , R.Lacks key tail
+  , WriteForeignRecord rlTail tail
+  , WriteForeign focus
+  ) ⇒
+  WriteForeignRecord (RL.Cons key focus rlTail) row where
   writeForeignRecordImpl _ record = do
     let
       focusForeign = writeForeign (Record.get keyP record)
@@ -159,14 +236,15 @@ readForeignRecord
   ∷ ∀ proxy rl row m
   . Monad m
   ⇒ RL.RowToList row rl
-  ⇒ ReadWriteForeignRecord rl row
+  ⇒ ReadForeignRecord rl row
   ⇒ proxy rl
+  → Boolean
   → Foreign
   → FT m (Record row)
-readForeignRecord _ value = do
+readForeignRecord _ errorOnExtraKeys value = do
   valueObject ← readObject value
-  values ← Builder.buildFromScratch <$> readForeignRecordImpl (Proxy ∷ _ rl)
-    valueObject
+  values ← Builder.buildFromScratch <$>
+    readForeignRecordImpl (Proxy ∷ _ rl) errorOnExtraKeys valueObject
   -- The reason we don't just return `values` is that it's alphabetical, so we
   -- piggyback off of the order of `valueObject` to retain the original order,
   -- while adding any keys that should be present in the final record, but were
@@ -191,7 +269,7 @@ readForeignRecord _ value = do
 
 writeForeignRecord
   ∷ ∀ proxy rl row
-  . ReadWriteForeignRecord rl row
+  . WriteForeignRecord rl row
   ⇒ proxy rl
   → Record row
   → Foreign
