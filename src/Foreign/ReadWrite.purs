@@ -12,6 +12,8 @@ module Foreign.ReadWrite
   , class WriteForeignRecord
   , writeForeignRecordImpl
   , writeForeignRecord
+
+  , undefined
   ) where
 
 import Prelude
@@ -73,6 +75,16 @@ instance ReadForeign Void where
 
 instance WriteForeign Void where
   writeForeign = absurd
+
+-- | Matches `undefined`
+instance ReadForeign Unit where
+  readForeign a =
+    if isUndefined a then pure unit
+    else fail (TypeMismatch "undefined" (tagOf a))
+
+-- | Writes `undefined`
+instance WriteForeign Unit where
+  writeForeign _ = undefined
 
 instance ReadForeign String where
   readForeign = readString

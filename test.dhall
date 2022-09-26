@@ -2,7 +2,9 @@ let main = ./spago.dhall
 
 in main //
   { dependencies = main.dependencies #
-    [ "spec"
+    [ "aff"
+    , "spec"
+    , "unsafe-reference"
     ]
   , sources = main.sources # [ "test/**/*.purs" ]
   }
