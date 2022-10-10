@@ -4,6 +4,9 @@ module Foreign.ReadWrite
   , class WriteForeign
   , writeForeign
 
+  , undefined
+
+  , Default(..)
   , IncompleteRecord(..)
 
   , class ReadForeignRecord
@@ -12,8 +15,6 @@ module Foreign.ReadWrite
   , class WriteForeignRecord
   , writeForeignRecordImpl
   , writeForeignRecord
-
-  , undefined
   ) where
 
 import Prelude
@@ -25,6 +26,7 @@ import Data.Identity (Identity(..))
 import Data.List.NonEmpty (head)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (class Newtype)
+import Data.Reflectable (class Reflectable, reflectType)
 import Data.Show.Generic (genericShow)
 import Data.Symbol (class IsSymbol, reflectSymbol)
 import Data.TraversableWithIndex (traverseWithIndex)
@@ -144,6 +146,42 @@ instance ReadForeign a ⇒ ReadForeign (Maybe a) where
 
 instance WriteForeign a ⇒ WriteForeign (Maybe a) where
   writeForeign = maybe undefined writeForeign
+
+-- | The `ReadForeign` and `WriteForeign` instances for `Default` will
+-- | consider the type `default` the default value and read/write it as
+-- | `undefined`. So `undefined` read into the type `Default 0 Int` will be
+-- | the value `Default 0`, and writing it back to foreign returns `undefined`.
+newtype Default ∷ ∀ defaultType. defaultType → Type → Type
+newtype Default default a = Default a
+
+type role Default phantom representational
+
+derive instance Newtype (Default default a) _
+derive instance Generic (Default default a) _
+
+instance (Show a) ⇒ Show (Default default a) where
+  show = genericShow
+
+instance
+  ( ReadForeign defaultType
+  , Reflectable default defaultType
+  ) ⇒
+  ReadForeign (Default default defaultType) where
+  readForeign value =
+    if isUndefined value then pure (Default defaultValue) else readForeign value
+    where
+    defaultValue = reflectType (Proxy ∷ _ default)
+
+instance
+  ( WriteForeign defaultType
+  , Eq defaultType
+  , Reflectable default defaultType
+  ) ⇒
+  WriteForeign (Default default defaultType) where
+  writeForeign (Default value) =
+    if value == defaultValue then undefined else writeForeign value
+    where
+    defaultValue = reflectType (Proxy ∷ _ default)
 
 -- | If any extra keys exist in the foreign object being read, it will result in
 -- | an error. Preserves key order.
