@@ -7,6 +7,8 @@ module Foreign.ReadWrite
   , undefined
 
   , Default(..)
+  , default
+
   , IncompleteRecord(..)
 
   , class ReadForeignRecord
@@ -161,6 +163,11 @@ derive instance Generic (Default default a) _
 
 instance (Show a) ⇒ Show (Default default a) where
   show = genericShow
+
+-- | The default value of a given type. For example, `default :: Default 0 Int`
+-- | has the value `Default 0`
+default ∷ ∀ default a. Reflectable default a ⇒ Default default a
+default = Default $ reflectType (Proxy ∷ _ default)
 
 instance
   ( ReadForeign defaultType
