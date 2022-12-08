@@ -22,6 +22,7 @@ module Foreign.ReadWrite
 import Prelude
 
 import Control.Monad.Except (catchError)
+import Data.Array.NonEmpty (NonEmptyArray, fromArray, toArray)
 import Data.FoldableWithIndex (forWithIndex_)
 import Data.Generic.Rep (class Generic)
 import Data.Identity (Identity(..))
@@ -133,6 +134,15 @@ instance ReadForeign a ⇒ ReadForeign (Array a) where
 instance WriteForeign a ⇒ WriteForeign (Array a) where
   writeForeign = map writeForeign >>>
     (unsafeToForeign ∷ Array Foreign → Foreign)
+
+instance ReadForeign a ⇒ ReadForeign (NonEmptyArray a) where
+  readForeign f = (readForeign f ∷ _ (Array a)) >>= \array →
+    case fromArray array of
+      Just nonEmptyArray → pure nonEmptyArray
+      Nothing → fail (ForeignError "Array is empty")
+
+instance WriteForeign a ⇒ WriteForeign (NonEmptyArray a) where
+  writeForeign = toArray >>> writeForeign
 
 instance ReadForeign a ⇒ ReadForeign (Object a) where
   readForeign = readObject >=> traverseWithIndex \k value → readForeign value
