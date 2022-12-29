@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `MonoidProxy` and `DefaultMonoid` for returning the mempty value when
 trying to parse `undefined` (including missing object fields)
+- Added `Read/WriteForeign` instances for some monoid/semigroup wrapper types:
+	- `Additive`
+	- `Multiplicative`
+	- `Conj`
+	- `Disj`
+	- `Endo`
+	- `Data.Semigroup.First`
+	- `Data.Semigroup.Last`
+	- `Data.Maybe.First`
+	- `Data.Maybe.Last`
 - Fixed infinite recursion in the `ReadForeign Default` instance
 
 ## [v3.3.0] - 2022-12-08

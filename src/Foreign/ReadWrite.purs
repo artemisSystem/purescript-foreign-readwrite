@@ -30,8 +30,17 @@ import Data.Generic.Rep (class Generic)
 import Data.Identity (Identity(..))
 import Data.List.NonEmpty (head)
 import Data.Maybe (Maybe(..), maybe)
+import Data.Monoid.Additive (Additive(..))
+import Data.Monoid.Conj (Conj(..))
+import Data.Monoid.Disj (Disj(..))
+import Data.Monoid.Endo (Endo(..))
+import Data.Monoid.Multiplicative (Multiplicative(..))
 import Data.Newtype (class Newtype)
 import Data.Reflectable (class Reflectable, reflectType)
+import Data.Semigroup.First (First(..)) as S
+import Data.Semigroup.Last (Last(..)) as S
+import Data.Maybe.First (First(..)) as M
+import Data.Maybe.Last (Last(..)) as M
 import Data.Show.Generic (genericShow)
 import Data.Symbol (class IsSymbol, reflectSymbol)
 import Data.TraversableWithIndex (traverseWithIndex)
@@ -122,6 +131,60 @@ instance ReadForeign Int where
 
 instance WriteForeign Int where
   writeForeign = unsafeToForeign ∷ Int → Foreign
+
+instance (ReadForeign a) ⇒ ReadForeign (Additive a) where
+  readForeign a = Additive <$> readForeign a
+
+instance (WriteForeign a) ⇒ WriteForeign (Additive a) where
+  writeForeign (Additive a) = writeForeign a
+
+instance (ReadForeign a) ⇒ ReadForeign (Multiplicative a) where
+  readForeign a = Multiplicative <$> readForeign a
+
+instance (WriteForeign a) ⇒ WriteForeign (Multiplicative a) where
+  writeForeign (Multiplicative a) = writeForeign a
+
+instance (ReadForeign a) ⇒ ReadForeign (Conj a) where
+  readForeign a = Conj <$> readForeign a
+
+instance (WriteForeign a) ⇒ WriteForeign (Conj a) where
+  writeForeign (Conj a) = writeForeign a
+
+instance (ReadForeign a) ⇒ ReadForeign (Disj a) where
+  readForeign a = Disj <$> readForeign a
+
+instance (WriteForeign a) ⇒ WriteForeign (Disj a) where
+  writeForeign (Disj a) = writeForeign a
+
+instance (ReadForeign (c a a)) ⇒ ReadForeign (Endo c a) where
+  readForeign a = Endo <$> readForeign a
+
+instance (WriteForeign (c a a)) ⇒ WriteForeign (Endo c a) where
+  writeForeign (Endo a) = writeForeign a
+
+instance (ReadForeign a) ⇒ ReadForeign (S.First a) where
+  readForeign a = S.First <$> readForeign a
+
+instance (WriteForeign a) ⇒ WriteForeign (S.First a) where
+  writeForeign (S.First a) = writeForeign a
+
+instance (ReadForeign a) ⇒ ReadForeign (S.Last a) where
+  readForeign a = S.Last <$> readForeign a
+
+instance (WriteForeign a) ⇒ WriteForeign (S.Last a) where
+  writeForeign (S.Last a) = writeForeign a
+
+instance (ReadForeign a) ⇒ ReadForeign (M.First a) where
+  readForeign a = M.First <$> readForeign a
+
+instance (WriteForeign a) ⇒ WriteForeign (M.First a) where
+  writeForeign (M.First a) = writeForeign a
+
+instance (ReadForeign a) ⇒ ReadForeign (M.Last a) where
+  readForeign a = M.Last <$> readForeign a
+
+instance (WriteForeign a) ⇒ WriteForeign (M.Last a) where
+  writeForeign (M.Last a) = writeForeign a
 
 instance ReadForeign a ⇒ ReadForeign (Identity a) where
   readForeign = readForeign >>> map (coerce ∷ a → Identity a)
