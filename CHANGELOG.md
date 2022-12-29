@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Added `MonoidProxy` and `DefaultMonoid` for returning the mempty value when
+trying to parse `undefined` (including missing object fields)
 - Fixed infinite recursion in the `ReadForeign Default` instance
 
 ## [v3.3.0] - 2022-12-08

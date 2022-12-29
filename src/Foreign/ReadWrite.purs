@@ -8,6 +8,8 @@ module Foreign.ReadWrite
 
   , Default(..)
   , default
+  , MonoidProxy
+  , DefaultMonoid
 
   , IncompleteRecord(..)
 
@@ -200,6 +202,13 @@ instance
     if value == defaultValue then undefined else writeForeign value
     where
     defaultValue = reflectType (Proxy ∷ _ default)
+
+foreign import data MonoidProxy ∷ Type → Type
+
+instance (Monoid a) ⇒ Reflectable (MonoidProxy a) a where
+  reflectType _ = mempty ∷ a
+
+type DefaultMonoid a = Default (MonoidProxy a) a
 
 -- | If any extra keys exist in the foreign object being read, it will result in
 -- | an error. Preserves key order.
