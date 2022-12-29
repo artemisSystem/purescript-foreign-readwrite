@@ -185,7 +185,8 @@ instance
   ) ⇒
   ReadForeign (Default default defaultType) where
   readForeign value =
-    if isUndefined value then pure (Default defaultValue) else readForeign value
+    if isUndefined value then pure (Default defaultValue)
+    else Default <$> readForeign value
     where
     defaultValue = reflectType (Proxy ∷ _ default)
 
