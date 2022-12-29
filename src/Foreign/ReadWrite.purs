@@ -227,7 +227,7 @@ instance WriteForeign a ⇒ WriteForeign (Maybe a) where
 -- | The `ReadForeign` and `WriteForeign` instances for `Default` will
 -- | consider the type `default` the default value and read/write it as
 -- | `undefined`. So `undefined` read into the type `Default 0 Int` will be
--- | the value `Default 0`, and writing it back to foreign returns `undefined`.
+-- | the value `Default 0`, and writing it back to foreign writes `undefined`.
 newtype Default ∷ ∀ defaultType. defaultType → Type → Type
 newtype Default default a = Default a
 
@@ -271,6 +271,8 @@ foreign import data MonoidProxy ∷ Type → Type
 instance (Monoid a) ⇒ Reflectable (MonoidProxy a) a where
   reflectType _ = mempty ∷ a
 
+-- | This uses `Default` (with `MonoidProxy`) to read/write mempty values when
+-- | encountering `undefined`. See `Default` for more info.
 type DefaultMonoid a = Default (MonoidProxy a) a
 
 -- | If any extra keys exist in the foreign object being read, it will result in
