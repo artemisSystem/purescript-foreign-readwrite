@@ -30,6 +30,8 @@ import Data.Generic.Rep (class Generic)
 import Data.Identity (Identity(..))
 import Data.List.NonEmpty (head)
 import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe.First (First(..)) as M
+import Data.Maybe.Last (Last(..)) as M
 import Data.Monoid.Additive (Additive(..))
 import Data.Monoid.Conj (Conj(..))
 import Data.Monoid.Disj (Disj(..))
@@ -39,8 +41,6 @@ import Data.Newtype (class Newtype)
 import Data.Reflectable (class Reflectable, reflectType)
 import Data.Semigroup.First (First(..)) as S
 import Data.Semigroup.Last (Last(..)) as S
-import Data.Maybe.First (First(..)) as M
-import Data.Maybe.Last (Last(..)) as M
 import Data.Show.Generic (genericShow)
 import Data.Symbol (class IsSymbol, reflectSymbol)
 import Data.TraversableWithIndex (traverseWithIndex)
