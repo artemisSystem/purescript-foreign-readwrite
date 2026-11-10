@@ -9,3 +9,4 @@
 !/.purs-repl
 /.psa*
 /.spago
+/spago.lock
